@@ -3,9 +3,9 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
-import { ensureUserProfile } from "@/lib/userProfile";
+// import { ensureUserProfile } from "@/lib/userProfile"; // if you're using this
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -22,10 +22,14 @@ export default function RegisterPage() {
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // 🔥 Create Firestore user profile
-      await ensureUserProfile(cred.user);
+      // Optional, if you have profile logic:
+      // await ensureUserProfile(cred.user);
 
-      router.replace("/dashboard");
+      // 🔥 Send verification email
+      await sendEmailVerification(cred.user);
+
+      // Go to "check your email" screen
+      router.replace("/verify-email");
     } catch (err: any) {
       setError(err.message ?? "Failed to register");
     } finally {
