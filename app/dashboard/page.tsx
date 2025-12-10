@@ -1,47 +1,48 @@
 // app/dashboard/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
 import { AuthGuard } from "@/components/AuthGuard";
-import { useAuth } from "@/components/AuthProvider";
-import { getUserProfile, type UserProfile } from "@/lib/userProfile";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
 
 export default function DashboardPage() {
-  const { user } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  const { profile, loading } = useUserProfile();
 
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const p = await getUserProfile(user.uid);
-        if (!cancelled) setProfile(p);
-      } finally {
-        if (!cancelled) setLoadingProfile(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  const createdAtString =
+    profile?.createdAt && "toDate" in profile.createdAt
+      ? profile.createdAt.toDate().toLocaleString()
+      : "—";
 
   return (
     <AuthGuard>
-      <div className="space-y-2">
+      <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p>Welcome, {user?.email}</p>
 
-        {loadingProfile && <p className="text-sm text-gray-500">Loading profile…</p>}
+        {loading && <p className="text-sm text-gray-500">Loading profile…</p>}
 
-        {!loadingProfile && (
-          <div className="mt-4 border rounded-lg p-4 text-sm">
-            <h2 className="font-semibold mb-1">User profile</h2>
-            <p>Email: {profile?.email ?? "unknown"}</p>
-            <p>Created: {profile?.createdAt ?? "unknown"}</p>
+        {profile && (
+          <div className="border rounded-lg p-4 text-sm space-y-1">
+            <div>
+              <strong>Email:</strong> {profile.email}
+            </div>
+            <div>
+              <strong>Role:</strong> {profile.role}
+            </div>
+            <div>
+              <strong>Name:</strong> {profile.displayName ?? "—"}
+            </div>
+            <div>
+              <strong>Email verified:</strong>{" "}
+              {profile.emailVerified ? "Yes" : "No"}
+            </div>
+            <div>
+              <strong>Created:</strong> {createdAtString}
+            </div>
+          </div>
+        )}
+
+        {profile?.role === "admin" && (
+          <div className="border rounded-lg p-4 bg-yellow-50 text-sm">
+            👑 Admin-only content goes here
           </div>
         )}
       </div>
