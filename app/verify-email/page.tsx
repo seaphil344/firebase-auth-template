@@ -10,10 +10,11 @@ import { auth } from "@/lib/firebaseClient";
 export default function VerifyEmailPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+
   const [status, setStatus] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // If not logged in, go to login
+  // If not logged in, redirect to login
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
@@ -26,6 +27,7 @@ export default function VerifyEmailPage() {
     setActionLoading(true);
 
     try {
+      // Re-use the auth instance user, or refetch from auth.currentUser
       await sendEmailVerification(user);
       setStatus("Verification email sent. Check your inbox.");
     } catch (err: any) {
@@ -44,11 +46,15 @@ export default function VerifyEmailPage() {
       // Reload the Firebase user to get fresh emailVerified status
       await user.reload();
 
-      if (user.emailVerified) {
+      const currentUser = auth.currentUser;
+
+      if (currentUser && currentUser.emailVerified) {
         setStatus("Email verified! Redirecting…");
         router.replace("/dashboard");
       } else {
-        setStatus("Still not verified. Make sure you clicked the link in your email.");
+        setStatus(
+          "Still not verified. Make sure you clicked the link in your email."
+        );
       }
     } catch (err: any) {
       setStatus(err.message ?? "Failed to check verification status.");

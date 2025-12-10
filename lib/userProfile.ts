@@ -9,6 +9,8 @@ export type UserProfile = {
 };
 
 export async function ensureUserProfile(user: User) {
+  console.log("[ensureUserProfile] called for uid:", user.uid);
+
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
 
@@ -18,13 +20,32 @@ export async function ensureUserProfile(user: User) {
       createdAt: new Date().toISOString(),
     };
 
-    await setDoc(ref, profile);
+    console.log("[ensureUserProfile] creating doc:", profile);
+
+    try {
+      await setDoc(ref, profile);
+      console.log("[ensureUserProfile] user doc created");
+    } catch (err) {
+      console.error("[ensureUserProfile] FAILED to create user doc:", err);
+      throw err;
+    }
+  } else {
+    console.log("[ensureUserProfile] doc already exists");
   }
 }
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  console.log("[getUserProfile] fetching profile for uid:", uid);
+
   const ref = doc(db, "users", uid);
   const snap = await getDoc(ref);
-  if (!snap.exists()) return null;
-  return snap.data() as UserProfile;
+
+  if (!snap.exists()) {
+    console.log("[getUserProfile] no profile found");
+    return null;
+  }
+
+  const data = snap.data() as UserProfile;
+  console.log("[getUserProfile] got profile:", data);
+  return data;
 }

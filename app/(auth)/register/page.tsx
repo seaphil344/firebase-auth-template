@@ -3,14 +3,18 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+} from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
-// import { ensureUserProfile } from "@/lib/userProfile"; // if you're using this
+import { ensureUserProfile } from "@/lib/userProfile";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -20,17 +24,19 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      console.log("[register] creating user...");
       const cred = await createUserWithEmailAndPassword(auth, email, password);
+      console.log("[register] user created:", cred.user.uid);
 
-      // Optional, if you have profile logic:
-      // await ensureUserProfile(cred.user);
+      // ✅ Create Firestore user doc immediately
+      await ensureUserProfile(cred.user);
 
-      // 🔥 Send verification email
+      console.log("[register] sending verification email...");
       await sendEmailVerification(cred.user);
 
-      // Go to "check your email" screen
       router.replace("/verify-email");
     } catch (err: any) {
+      console.error("[register] error:", err);
       setError(err.message ?? "Failed to register");
     } finally {
       setLoading(false);
@@ -53,7 +59,7 @@ export default function RegisterPage() {
             type="email"
             className="w-full border rounded px-3 py-2 text-sm"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             required
           />
         </div>
@@ -64,7 +70,7 @@ export default function RegisterPage() {
             type="password"
             className="w-full border rounded px-3 py-2 text-sm"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
           />
