@@ -1,8 +1,7 @@
-// app/login/page.tsx
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
@@ -13,6 +12,10 @@ import { ensureUserProfile } from "@/lib/userProfile";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Optional redirect target after login (?from=/dashboard)
+  const redirectTo = searchParams.get("from") || "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +24,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleEmailLogin(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -29,10 +32,13 @@ export default function LoginPage() {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
 
-      // Ensure profile exists / update lastLoginAt, metadata
+      // ✅ Ensure Firestore user profile exists & metadata is updated
       await ensureUserProfile(cred.user);
 
-      router.replace("/dashboard");
+      // ✅ Set middleware auth cookie (7 days)
+      document.cookie = `auth=1; path=/; max-age=${7 * 24 * 60 * 60}`;
+
+      router.replace(redirectTo);
     } catch (err: any) {
       setError(err.message ?? "Failed to sign in");
     } finally {
@@ -40,7 +46,7 @@ export default function LoginPage() {
     }
   }
 
-  async function handleGoogleSignIn() {
+  async function handleGoogleLogin() {
     setError(null);
     setGoogleLoading(true);
 
@@ -48,10 +54,15 @@ export default function LoginPage() {
       const provider = new GoogleAuthProvider();
       const cred = await signInWithPopup(auth, provider);
 
+      // ✅ Ensure Firestore user profile exists & metadata is updated
       await ensureUserProfile(cred.user);
 
-      router.replace("/dashboard");
+      // ✅ Set middleware auth cookie
+      document.cookie = `auth=1; path=/; max-age=${7 * 24 * 60 * 60}`;
+
+      router.replace(redirectTo);
     } catch (err: any) {
+      // Ignore popup close
       if (err?.code !== "auth/popup-closed-by-user") {
         setError(err.message ?? "Google sign-in failed");
       }
@@ -65,9 +76,14 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-4 border p-6 rounded-lg">
         <h1 className="text-xl font-semibold">Login</h1>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="text-sm text-red-600">
+            {error}
+          </p>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        {/* Email / password login */}
+        <form onSubmit={handleEmailLogin} className="space-y-3">
           <div>
             <label className="block text-sm mb-1">Email</label>
             <input
@@ -76,6 +92,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </div>
 
@@ -87,6 +104,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
             />
           </div>
 
@@ -95,25 +113,28 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-2 rounded bg-black text-white text-sm disabled:opacity-60"
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
 
+        {/* Divider */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <div className="flex-1 h-px bg-gray-200" />
           <span>or</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
+        {/* Google login */}
         <button
           type="button"
-          onClick={handleGoogleSignIn}
+          onClick={handleGoogleLogin}
           disabled={googleLoading}
           className="w-full py-2 border rounded text-sm flex items-center justify-center gap-2 disabled:opacity-60"
         >
-          {googleLoading ? "Signing in with Google..." : "Continue with Google"}
+          {googleLoading ? "Signing in with Google…" : "Continue with Google"}
         </button>
 
+        {/* Links */}
         <div className="flex justify-between text-xs mt-2">
           <button
             type="button"
@@ -122,6 +143,7 @@ export default function LoginPage() {
           >
             Create account
           </button>
+
           <button
             type="button"
             className="underline"
