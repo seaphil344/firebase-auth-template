@@ -12,6 +12,7 @@ import { ensureUserProfile } from "@/lib/userProfile";
 
 export default function RegisterPage() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -24,19 +25,16 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      console.log("[register] creating user...");
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      console.log("[register] user created:", cred.user.uid);
 
-      // ✅ Create Firestore user doc immediately
+      // Create Firestore user doc with metadata
       await ensureUserProfile(cred.user);
 
-      console.log("[register] sending verification email...");
+      // Send verification email
       await sendEmailVerification(cred.user);
 
       router.replace("/verify-email");
     } catch (err: any) {
-      console.error("[register] error:", err);
       setError(err.message ?? "Failed to register");
     } finally {
       setLoading(false);

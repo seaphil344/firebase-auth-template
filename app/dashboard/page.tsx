@@ -7,11 +7,6 @@ import { useUserProfile } from "@/lib/hooks/useUserProfile";
 export default function DashboardPage() {
   const { profile, loading } = useUserProfile();
 
-  const createdAtString =
-    profile?.createdAt && "toDate" in profile.createdAt
-      ? profile.createdAt.toDate().toLocaleString()
-      : "—";
-
   return (
     <AuthGuard>
       <div className="space-y-4">
@@ -28,21 +23,22 @@ export default function DashboardPage() {
               <strong>Role:</strong> {profile.role}
             </div>
             <div>
-              <strong>Name:</strong> {profile.displayName ?? "—"}
+              <strong>Auth provider:</strong> {profile.authProvider}
             </div>
             <div>
               <strong>Email verified:</strong>{" "}
               {profile.emailVerified ? "Yes" : "No"}
             </div>
             <div>
-              <strong>Created:</strong> {createdAtString}
+              <strong>Onboarding completed:</strong>{" "}
+              {profile.onboardingCompleted ? "Yes" : "No"}
             </div>
-          </div>
-        )}
-
-        {profile?.role === "admin" && (
-          <div className="border rounded-lg p-4 bg-yellow-50 text-sm">
-            👑 Admin-only content goes here
+            <div>
+              <strong>Created:</strong> {profile.createdAt}
+            </div>
+            <div>
+              <strong>Last login:</strong> {profile.lastLoginAt}
+            </div>
           </div>
         )}
       </div>

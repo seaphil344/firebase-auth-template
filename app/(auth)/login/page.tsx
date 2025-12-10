@@ -27,15 +27,13 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      console.log("[login] signing in with email/password...");
       const cred = await signInWithEmailAndPassword(auth, email, password);
-      console.log("[login] signed in:", cred.user.uid);
 
+      // Ensure profile exists / update lastLoginAt, metadata
       await ensureUserProfile(cred.user);
 
       router.replace("/dashboard");
     } catch (err: any) {
-      console.error("[login] error:", err);
       setError(err.message ?? "Failed to sign in");
     } finally {
       setLoading(false);
@@ -47,17 +45,14 @@ export default function LoginPage() {
     setGoogleLoading(true);
 
     try {
-      console.log("[login] signing in with Google...");
       const provider = new GoogleAuthProvider();
       const cred = await signInWithPopup(auth, provider);
-      console.log("[login] Google signed in:", cred.user.uid);
 
       await ensureUserProfile(cred.user);
 
       router.replace("/dashboard");
     } catch (err: any) {
       if (err?.code !== "auth/popup-closed-by-user") {
-        console.error("[login] Google error:", err);
         setError(err.message ?? "Google sign-in failed");
       }
     } finally {
@@ -72,7 +67,6 @@ export default function LoginPage() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        {/* Email/password form */}
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="block text-sm mb-1">Email</label>
@@ -105,14 +99,12 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Divider */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <div className="flex-1 h-px bg-gray-200" />
           <span>or</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
-        {/* Google button */}
         <button
           type="button"
           onClick={handleGoogleSignIn}
@@ -122,7 +114,6 @@ export default function LoginPage() {
           {googleLoading ? "Signing in with Google..." : "Continue with Google"}
         </button>
 
-        {/* Links */}
         <div className="flex justify-between text-xs mt-2">
           <button
             type="button"
