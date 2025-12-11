@@ -2,30 +2,32 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const PROTECTED_PATHS = ["/dashboard", "/settings"];
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect /dashboard (and subpaths)
-  // You can add more patterns later if needed.
-  const isProtectedRoute = pathname.startsWith("/dashboard");
+  // Only protect specific paths
+  const isProtectedRoute = PROTECTED_PATHS.some((base) =>
+    pathname === base || pathname.startsWith(`${base}/`)
+  );
 
   if (!isProtectedRoute) {
     return NextResponse.next();
   }
 
-  // Check for our simple auth cookie
-  const hasAuthCookie = request.cookies.get("auth")?.value === "1";
+  // Look for the HttpOnly session cookie
+  const hasSession = !!request.cookies.get("session")?.value;
 
-  if (!hasAuthCookie) {
+  if (!hasSession) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("from", pathname); // optional "return to" info
+    loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
-// Limit middleware to specific routes
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/settings/:path*"],
 };

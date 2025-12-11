@@ -1,36 +1,50 @@
 // components/AuthGuard.tsx
 "use client";
 
-import { ReactNode, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { useAuth } from "./AuthProvider";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { Skeleton } from "@/components/Skeleton";
 
 export function AuthGuard({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const { user, loading: authLoading } = useAuth();
+  const { loading: profileLoading } = useUserProfile();
+
+  const isLoading = authLoading || profileLoading;
 
   useEffect(() => {
-    if (loading) return;
+    if (isLoading) return;
 
-    // Not logged in → go to login
+    // No logged-in user → go to login
     if (!user) {
-      router.replace("/login");
+      router.replace(`/login?from=${encodeURIComponent(pathname)}`);
       return;
     }
 
     // Logged in but not verified → go to verify-email
-    if (!user.emailVerified) {
+    if (user && !user.emailVerified) {
       router.replace("/verify-email");
-      return;
     }
-  }, [loading, user, router]);
+  }, [isLoading, user, router, pathname]);
 
-  if (loading) {
-    return <div className="p-4">Loading…</div>;
+  if (isLoading) {
+    // While auth/profile are resolving, show a skeleton
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+    );
   }
 
-  // While redirecting, don’t flash the protected content
-  if (!user || !user.emailVerified) return null;
+  // While we're redirecting, render nothing
+  if (!user || !user.emailVerified) {
+    return null;
+  }
 
   return <>{children}</>;
 }

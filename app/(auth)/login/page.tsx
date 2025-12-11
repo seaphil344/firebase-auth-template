@@ -8,14 +8,11 @@ import {
   signInWithPopup,
 } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
-import { ensureUserProfile } from "@/lib/userProfile"
-import { getErrorMessage } from "@/lib/errors";
+import { ensureUserProfile } from "@/lib/userProfile";
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  // Optional redirect target after login (?from=/dashboard)
   const redirectTo = searchParams.get("from") || "/dashboard";
 
   const [email, setEmail] = useState("");
@@ -25,6 +22,19 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  async function createSession(idToken: string) {
+    const res = await fetch("/api/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+      credentials: "include",
+    });
+  
+    if (!res.ok) {
+      throw new Error("Failed to establish server session");
+    }
+  }  
+
   async function handleEmailLogin(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -33,15 +43,19 @@ export default function LoginPage() {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
 
-      // ✅ Ensure Firestore user profile exists & metadata is updated
       await ensureUserProfile(cred.user);
 
-      // ✅ Set middleware auth cookie (7 days)
-      document.cookie = `auth=1; path=/; max-age=${7 * 24 * 60 * 60}`;
+      // 🔐 Create HttpOnly session cookie via server
+      const idToken = await cred.user.getIdToken();
+      await createSession(idToken);
 
       router.replace(redirectTo);
     } catch (err: unknown) {
-        setError(getErrorMessage(err, "Failed to sign in"));
+      let message = "Failed to sign in";
+      if (err instanceof Error && err.message) {
+        message = err.message;
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -55,19 +69,23 @@ export default function LoginPage() {
       const provider = new GoogleAuthProvider();
       const cred = await signInWithPopup(auth, provider);
 
-      // ✅ Ensure Firestore user profile exists & metadata is updated
       await ensureUserProfile(cred.user);
 
-      // ✅ Set middleware auth cookie
-      document.cookie = `auth=1; path=/; max-age=${7 * 24 * 60 * 60}`;
+      const idToken = await cred.user.getIdToken();
+      await createSession(idToken);
 
       router.replace(redirectTo);
     } catch (err: unknown) {
-        // ignore popup closed
-        const firebaseErr = err as { code?: string } | undefined;
-        if (firebaseErr?.code !== "auth/popup-closed-by-user") {
-            setError(getErrorMessage(err, "Google sign-in failed"));
+      const maybeFirebaseErr = err as { code?: string } | undefined;
+      if (maybeFirebaseErr?.code === "auth/popup-closed-by-user") {
+        // ignore silently
+      } else {
+        let message = "Google sign-in failed";
+        if (err instanceof Error && err.message) {
+          message = err.message;
         }
+        setError(message);
+      }
     } finally {
       setGoogleLoading(false);
     }
@@ -78,13 +96,8 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-4 border p-6 rounded-lg">
         <h1 className="text-xl font-semibold">Login</h1>
 
-        {error && (
-          <p className="text-sm text-red-600">
-            {error}
-          </p>
-        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
-        {/* Email / password login */}
         <form onSubmit={handleEmailLogin} className="space-y-3">
           <div>
             <label className="block text-sm mb-1">Email</label>
@@ -119,14 +132,12 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Divider */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <div className="flex-1 h-px bg-gray-200" />
           <span>or</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
-        {/* Google login */}
         <button
           type="button"
           onClick={handleGoogleLogin}
@@ -136,7 +147,6 @@ export default function LoginPage() {
           {googleLoading ? "Signing in with Google…" : "Continue with Google"}
         </button>
 
-        {/* Links */}
         <div className="flex justify-between text-xs mt-2">
           <button
             type="button"
@@ -145,7 +155,6 @@ export default function LoginPage() {
           >
             Create account
           </button>
-
           <button
             type="button"
             className="underline"

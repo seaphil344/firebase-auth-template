@@ -3,6 +3,7 @@
 
 import { AuthGuard } from "@/components/AuthGuard";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { Skeleton } from "@/components/Skeleton";
 
 export default function DashboardPage() {
   const { profile, loading } = useUserProfile();
@@ -12,9 +13,14 @@ export default function DashboardPage() {
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
 
-        {loading && <p className="text-sm text-gray-500">Loading profile…</p>}
+        {loading && (
+          <div className="space-y-3">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-10 w-1/2" />
+          </div>
+        )}
 
-        {profile && (
+        {!loading && profile && (
           <div className="border rounded-lg p-4 text-sm space-y-1">
             <div>
               <strong>Email:</strong> {profile.email}
