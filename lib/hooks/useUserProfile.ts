@@ -1,4 +1,3 @@
-// lib/hooks/useUserProfile.ts
 "use client";
 
 import { useEffect, useState } from "react";
@@ -11,21 +10,28 @@ export function useUserProfile() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
 
-    (async () => {
+    async function syncProfile() {
+      // No user → clear profile & stop loading
+      if (!user) {
+        if (cancelled) return;
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      // Have a user → load profile
+      setLoading(true);
       const data = await getUserProfile(user.uid);
+
       if (!cancelled) {
         setProfile(data);
         setLoading(false);
       }
-    })();
+    }
+
+    void syncProfile();
 
     return () => {
       cancelled = true;
