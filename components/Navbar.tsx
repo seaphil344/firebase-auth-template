@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
 import { useAuth } from "./AuthProvider";
+import Image from "next/image";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
 
 export default function Navbar() {
@@ -63,9 +64,19 @@ export default function Navbar() {
 
           {!isLoading && user && (
             <>
-              <Link href="/dashboard" className="hover:underline">
+                <Link
+                href="/dashboard"
+                className="hover:text-sky-400 transition-colors"
+                >
                 Dashboard
-              </Link>
+                </Link>
+
+                <Link
+                href="/settings"
+                className="hidden sm:inline-block text-slate-300 hover:text-sky-400 transition-colors"
+                >
+                Settings
+                </Link>
 
               {/* User info */}
               <div className="flex items-center gap-3">

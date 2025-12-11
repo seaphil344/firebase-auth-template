@@ -51,7 +51,8 @@ export async function ensureUserProfile(user: User) {
   const snap = await getDoc(ref);
 
   const createdISO = user.metadata.creationTime ?? new Date().toISOString();
-  const lastLoginISO = user.metadata.lastSignInTime ?? new Date().toISOString();
+  const lastLoginISO =
+    user.metadata.lastSignInTime ?? new Date().toISOString();
   const authProvider = getAuthProvider(user);
 
   if (!snap.exists()) {
@@ -86,6 +87,7 @@ export async function ensureUserProfile(user: User) {
     onboardingCompleted: existing.onboardingCompleted ?? false,
 
     createdAt: normalizeDate(existing.createdAt, createdISO),
+    // always update lastLoginAt from auth metadata
     lastLoginAt: lastLoginISO,
   };
 
@@ -98,7 +100,6 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   if (!snap.exists()) return null;
 
   const raw = snap.data() as Partial<UserProfile>;
-
   const fallback = new Date().toISOString();
 
   return {
@@ -112,4 +113,18 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     createdAt: normalizeDate(raw.createdAt, fallback),
     lastLoginAt: normalizeDate(raw.lastLoginAt, fallback),
   };
+}
+
+// ✏️ Only these fields are editable from the Settings page
+type EditableUserProfileFields = Pick<
+  UserProfile,
+  "displayName" | "photoURL" | "onboardingCompleted"
+>;
+
+export async function updateUserProfile(
+  uid: string,
+  updates: Partial<EditableUserProfileFields>
+): Promise<void> {
+  const ref = doc(db, "users", uid);
+  await setDoc(ref, updates, { merge: true });
 }
