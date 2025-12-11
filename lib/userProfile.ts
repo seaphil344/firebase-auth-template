@@ -18,8 +18,8 @@ export type UserProfile = {
 
   onboardingCompleted: boolean;
 
-  createdAt: string;    // ISO string
-  lastLoginAt: string;  // ISO string
+  createdAt: string;   // ISO string
+  lastLoginAt: string; // ISO string
 };
 
 function getAuthProvider(user: User): AuthProvider {
@@ -28,18 +28,19 @@ function getAuthProvider(user: User): AuthProvider {
   return "password";
 }
 
-function toISO(val: any, fallback: string): string {
+function normalizeDate(val: unknown, fallback: string): string {
   if (!val) return fallback;
   if (typeof val === "string") return val;
 
-  // Firestore Timestamp has .toDate()
-  if (val && typeof val.toDate === "function") {
-    return val.toDate().toISOString();
-  }
-
-  // Fallback if it's a plain seconds/nanoseconds object
-  if (typeof val.seconds === "number") {
-    return new Date(val.seconds * 1000).toISOString();
+  // Firestore Timestamp-like
+  if (typeof val === "object" && val !== null) {
+    const maybeTs = val as { toDate?: () => Date; seconds?: number };
+    if (typeof maybeTs.toDate === "function") {
+      return maybeTs.toDate().toISOString();
+    }
+    if (typeof maybeTs.seconds === "number") {
+      return new Date(maybeTs.seconds * 1000).toISOString();
+    }
   }
 
   return fallback;
@@ -49,25 +50,19 @@ export async function ensureUserProfile(user: User) {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
 
+  const createdISO = user.metadata.creationTime ?? new Date().toISOString();
+  const lastLoginISO = user.metadata.lastSignInTime ?? new Date().toISOString();
   const authProvider = getAuthProvider(user);
-  const createdISO =
-    user.metadata.creationTime ?? new Date().toISOString();
-  const lastLoginISO =
-    user.metadata.lastSignInTime ?? new Date().toISOString();
 
   if (!snap.exists()) {
     const profile: UserProfile = {
       email: user.email ?? null,
       displayName: user.displayName ?? null,
       photoURL: user.photoURL ?? null,
-
       role: "user",
-
       emailVerified: user.emailVerified,
       authProvider,
-
       onboardingCompleted: false,
-
       createdAt: createdISO,
       lastLoginAt: lastLoginISO,
     };
@@ -90,8 +85,8 @@ export async function ensureUserProfile(user: User) {
 
     onboardingCompleted: existing.onboardingCompleted ?? false,
 
-    createdAt: toISO(existing.createdAt, createdISO),
-    lastLoginAt: lastLoginISO, // always updated on login/signup
+    createdAt: normalizeDate(existing.createdAt, createdISO),
+    lastLoginAt: lastLoginISO,
   };
 
   await setDoc(ref, updated, { merge: true });
@@ -102,24 +97,19 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
 
-  const raw = snap.data() as any;
+  const raw = snap.data() as Partial<UserProfile>;
 
-  // Normalize on read as well
-  const profile: UserProfile = {
+  const fallback = new Date().toISOString();
+
+  return {
     email: raw.email ?? null,
     displayName: raw.displayName ?? null,
     photoURL: raw.photoURL ?? null,
-
     role: (raw.role as UserRole) ?? "user",
-
     emailVerified: !!raw.emailVerified,
     authProvider: (raw.authProvider as AuthProvider) ?? "password",
-
     onboardingCompleted: !!raw.onboardingCompleted,
-
-    createdAt: toISO(raw.createdAt, new Date().toISOString()),
-    lastLoginAt: toISO(raw.lastLoginAt, new Date().toISOString()),
+    createdAt: normalizeDate(raw.createdAt, fallback),
+    lastLoginAt: normalizeDate(raw.lastLoginAt, fallback),
   };
-
-  return profile;
 }
