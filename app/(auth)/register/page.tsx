@@ -10,6 +10,8 @@ import {
 import { auth } from "@/lib/firebaseClient";
 import { ensureUserProfile } from "@/lib/userProfile";
 
+import { getErrorMessage } from "@/lib/errors";
+
 export default function RegisterPage() {
   const router = useRouter();
 
@@ -34,8 +36,8 @@ export default function RegisterPage() {
       await sendEmailVerification(cred.user);
 
       router.replace("/verify-email");
-    } catch (err: any) {
-      setError(err.message ?? "Failed to register");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to register"));
     } finally {
       setLoading(false);
     }

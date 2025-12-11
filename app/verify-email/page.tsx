@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { sendEmailVerification } from "firebase/auth";
 import { useAuth } from "@/components/AuthProvider";
 import { auth } from "@/lib/firebaseClient";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function VerifyEmailPage() {
   const router = useRouter();
@@ -13,6 +14,8 @@ export default function VerifyEmailPage() {
 
   const [status, setStatus] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const [error, setError] = useState<string | null>(null);
 
   // If not logged in, redirect to login
   useEffect(() => {
@@ -24,14 +27,15 @@ export default function VerifyEmailPage() {
   async function handleResend() {
     if (!user) return;
     setStatus(null);
+    setError(null);
     setActionLoading(true);
 
     try {
       // Re-use the auth instance user, or refetch from auth.currentUser
       await sendEmailVerification(user);
       setStatus("Verification email sent. Check your inbox.");
-    } catch (err: any) {
-      setStatus(err.message ?? "Failed to send verification email.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to send verification email."));
     } finally {
       setActionLoading(false);
     }
@@ -40,6 +44,7 @@ export default function VerifyEmailPage() {
   async function handleCheckVerified() {
     if (!user) return;
     setStatus(null);
+    setError(null);
     setActionLoading(true);
 
     try {
@@ -56,8 +61,8 @@ export default function VerifyEmailPage() {
           "Still not verified. Make sure you clicked the link in your email."
         );
       }
-    } catch (err: any) {
-      setStatus(err.message ?? "Failed to check verification status.");
+    } catch (err: unknown) {
+        setError(getErrorMessage(err, "Failed to check verification status."));
     } finally {
       setActionLoading(false);
     }

@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
@@ -19,8 +20,8 @@ export default function ResetPasswordPage() {
     try {
       await sendPasswordResetEmail(auth, email);
       setMessage("If an account exists for that email, a reset link has been sent.");
-    } catch (err: any) {
-      setError(err.message ?? "Failed to send reset email");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to send reset email"));
     } finally {
       setLoading(false);
     }

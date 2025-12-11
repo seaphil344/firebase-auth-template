@@ -8,7 +8,8 @@ import {
   signInWithPopup,
 } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
-import { ensureUserProfile } from "@/lib/userProfile";
+import { ensureUserProfile } from "@/lib/userProfile"
+import { getErrorMessage } from "@/lib/errors";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,8 +40,8 @@ export default function LoginPage() {
       document.cookie = `auth=1; path=/; max-age=${7 * 24 * 60 * 60}`;
 
       router.replace(redirectTo);
-    } catch (err: any) {
-      setError(err.message ?? "Failed to sign in");
+    } catch (err: unknown) {
+        setError(getErrorMessage(err, "Failed to sign in"));
     } finally {
       setLoading(false);
     }
@@ -61,11 +62,12 @@ export default function LoginPage() {
       document.cookie = `auth=1; path=/; max-age=${7 * 24 * 60 * 60}`;
 
       router.replace(redirectTo);
-    } catch (err: any) {
-      // Ignore popup close
-      if (err?.code !== "auth/popup-closed-by-user") {
-        setError(err.message ?? "Google sign-in failed");
-      }
+    } catch (err: unknown) {
+        // ignore popup closed
+        const firebaseErr = err as { code?: string } | undefined;
+        if (firebaseErr?.code !== "auth/popup-closed-by-user") {
+            setError(getErrorMessage(err, "Google sign-in failed"));
+        }
     } finally {
       setGoogleLoading(false);
     }
