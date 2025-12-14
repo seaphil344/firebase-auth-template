@@ -9,6 +9,7 @@ import { auth } from "@/lib/firebaseClient";
 import { useAuth } from "./AuthProvider";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
 import { Skeleton } from "@/components/Skeleton";
+import { toast } from "sonner";
 
 export default function Navbar() {
   const router = useRouter();
@@ -36,6 +37,8 @@ export default function Navbar() {
       method: "DELETE",
       credentials: "include",
     });
+
+    toast("Signed out");
 
     router.replace("/login");
   }

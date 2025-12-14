@@ -1,59 +1,62 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
-import { getErrorMessage } from "@/lib/errors";
 
 export default function ResetPasswordPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleReset(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
-    setLoading(true);
 
-    try {
-      await sendPasswordResetEmail(auth, email);
-      setMessage("If an account exists for that email, a reset link has been sent.");
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, "Failed to send reset email"));
-    } finally {
-      setLoading(false);
-    }
+    toast.promise(
+      sendPasswordResetEmail(auth, email),
+      {
+        loading: "Sending reset email…",
+        success: "Password reset email sent. Check your inbox.",
+        error: "Could not send reset email. Double-check the address.",
+      }
+    );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 border p-6 rounded-lg">
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-sm space-y-4 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950/60">
         <h1 className="text-xl font-semibold">Reset password</h1>
 
-        {message && <p className="text-sm text-green-600">{message}</p>}
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        <form onSubmit={handleReset} className="space-y-3">
+          <div>
+            <label className="block text-sm mb-1">Email</label>
+            <input
+              type="email"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm mb-1">Email</label>
-          <input
-            type="email"
-            className="w-full border rounded px-3 py-2 text-sm"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-          />
-        </div>
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-medium py-2.5"
+          >
+            Send reset link
+          </button>
+        </form>
 
         <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2 rounded bg-black text-white text-sm disabled:opacity-60"
+          type="button"
+          onClick={() => router.push("/login")}
+          className="text-xs underline underline-offset-2 text-slate-600 dark:text-slate-400"
         >
-          {loading ? "Sending..." : "Send reset link"}
+          Back to login
         </button>
-      </form>
+      </div>
     </div>
   );
 }

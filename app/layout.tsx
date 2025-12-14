@@ -1,8 +1,8 @@
-// app/layout.tsx
 import type { ReactNode } from "react";
 import { AuthProvider } from "@/components/AuthProvider";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import Navbar from "@/components/Navbar";
-import { ThemeProvider } from "@/components/ThemeProvider"
+import { Toaster } from "sonner";
 import "./globals.css";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -12,6 +12,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <AuthProvider>
             <Navbar />
+
+            {/* GLOBAL TOASTER */}
+            <Toaster
+              richColors
+              closeButton
+              position="top-right"
+              theme="system"
+            />
+
             <main className="max-w-6xl mx-auto px-4 py-6">
               {children}
             </main>

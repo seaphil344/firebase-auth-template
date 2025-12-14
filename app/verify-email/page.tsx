@@ -1,111 +1,87 @@
-// app/verify-email/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { sendEmailVerification } from "firebase/auth";
-import { useAuth } from "@/components/AuthProvider";
+import { toast } from "sonner";
+import { sendEmailVerification, reload } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
-import { getErrorMessage } from "@/lib/errors";
+import { useAuth } from "@/components/AuthProvider";
+import { ensureUserProfile } from "@/lib/userProfile";
 
 export default function VerifyEmailPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const [sending, setSending] = useState(false);
 
-  const [status, setStatus] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-
-  const [error, setError] = useState<string | null>(null);
-
-  // If not logged in, redirect to login
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/login");
+    let cancelled = false;
+
+    async function checkVerified() {
+      if (!user || cancelled) return;
+
+      await reload(user);
+
+      if (!cancelled && user.emailVerified) {
+        // Create profile now that verified
+        await ensureUserProfile(user);
+
+        toast.success("Email verified! Redirecting…");
+        router.replace("/dashboard");
+      }
     }
-  }, [loading, user, router]);
+
+    void checkVerified();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, router]);
 
   async function handleResend() {
-    if (!user) return;
-    setStatus(null);
-    setError(null);
-    setActionLoading(true);
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    setSending(true);
 
     try {
-      // Re-use the auth instance user, or refetch from auth.currentUser
-      await sendEmailVerification(user);
-      setStatus("Verification email sent. Check your inbox.");
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, "Failed to send verification email."));
+      await sendEmailVerification(currentUser);
+      toast("Verification email sent. Check your inbox.");
+    } catch (err) {
+      toast.error("Could not send verification email. Try again soon.");
     } finally {
-      setActionLoading(false);
+      setSending(false);
     }
   }
 
-  async function handleCheckVerified() {
-    if (!user) return;
-    setStatus(null);
-    setError(null);
-    setActionLoading(true);
-
-    try {
-      // Reload the Firebase user to get fresh emailVerified status
-      await user.reload();
-
-      const currentUser = auth.currentUser;
-
-      if (currentUser && currentUser.emailVerified) {
-        setStatus("Email verified! Redirecting…");
-        router.replace("/dashboard");
-      } else {
-        setStatus(
-          "Still not verified. Make sure you clicked the link in your email."
-        );
-      }
-    } catch (err: unknown) {
-        setError(getErrorMessage(err, "Failed to check verification status."));
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-gray-600">Loading…</p>
-      </div>
-    );
+  if (loading) return null;
+  if (!user) {
+    router.replace("/login");
+    return null;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-md border rounded-lg p-6 space-y-4">
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-md space-y-4 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950/60">
         <h1 className="text-xl font-semibold">Verify your email</h1>
-
-        <p className="text-sm text-gray-700">
-          We&apos;ve sent a verification link to{" "}
-          <span className="font-medium">{user.email}</span>. <br />
-          Please click the link in that email to verify your account.
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          We sent a verification link to <span className="font-medium">{user.email}</span>.
+          After you verify, come back here and this page will redirect you automatically.
         </p>
 
-        {status && <p className="text-sm text-blue-600">{status}</p>}
+        <button
+          onClick={handleResend}
+          disabled={sending}
+          className="w-full rounded-lg border border-slate-300 dark:border-slate-700 px-4 py-2.5 text-sm hover:border-sky-500 hover:text-sky-500 disabled:opacity-60"
+        >
+          {sending ? "Sending…" : "Resend verification email"}
+        </button>
 
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={handleResend}
-            disabled={actionLoading}
-            className="w-full py-2 border rounded text-sm disabled:opacity-60"
-          >
-            {actionLoading ? "Sending…" : "Resend verification email"}
-          </button>
-
-          <button
-            onClick={handleCheckVerified}
-            disabled={actionLoading}
-            className="w-full py-2 rounded bg-black text-white text-sm disabled:opacity-60"
-          >
-            {actionLoading ? "Checking…" : "I verified, re-check"}
-          </button>
-        </div>
+        <button
+          onClick={() => router.replace("/login")}
+          className="text-xs underline underline-offset-2 text-slate-600 dark:text-slate-400"
+        >
+          Back to login
+        </button>
       </div>
     </div>
   );

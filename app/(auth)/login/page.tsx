@@ -2,112 +2,102 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  signInWithEmailAndPassword,
-  GoogleAuthProvider,
-  signInWithPopup,
-} from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { toast } from "sonner";
 import { auth } from "@/lib/firebaseClient";
 import { ensureUserProfile } from "@/lib/userProfile";
+
+async function createServerSession(idToken: string) {
+  const res = await fetch("/api/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ idToken }),
+  });
+
+  if (!res.ok) {
+    let message = "Failed to establish secure session";
+
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+    } catch {
+      // ignore JSON parse errors
+    }
+
+    throw new Error(message);
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("from") || "/dashboard";
+  const redirectTo = searchParams.get("redirect") ?? "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-
-  async function createSession(idToken: string) {
-    const res = await fetch("/api/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken }),
-      credentials: "include",
-    });
-  
-    if (!res.ok) {
-      throw new Error("Failed to establish server session");
-    }
-  }  
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleEmailLogin(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
+    if (submitting) return;
+
+    setSubmitting(true);
 
     try {
+      // 1️⃣ Firebase client sign-in
       const cred = await signInWithEmailAndPassword(auth, email, password);
 
+      // 2️⃣ Email verification guard
+      if (!cred.user.emailVerified) {
+        await signOut(auth);
+        toast.error("Please verify your email before signing in.");
+        router.replace("/verify-email");
+        return;
+      }
+
+      // 3️⃣ Ensure Firestore profile exists
       await ensureUserProfile(cred.user);
 
-      // 🔐 Create HttpOnly session cookie via server
+      // 4️⃣ Create server session
       const idToken = await cred.user.getIdToken();
-      await createSession(idToken);
+      await createServerSession(idToken);
 
+      // 5️⃣ Success → redirect
+      toast.success("Welcome back!");
       router.replace(redirectTo);
-    } catch (err: unknown) {
-      let message = "Failed to sign in";
-      if (err instanceof Error && err.message) {
-        message = err.message;
-      }
-      setError(message);
+    } catch (err) {
+      console.error("[login] error:", err);
+
+      // 🔥 CRITICAL: ensure client + server stay in sync
+      await signOut(auth);
+
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unable to sign in. Please try again.";
+
+      toast.error(message);
     } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleGoogleLogin() {
-    setError(null);
-    setGoogleLoading(true);
-
-    try {
-      const provider = new GoogleAuthProvider();
-      const cred = await signInWithPopup(auth, provider);
-
-      await ensureUserProfile(cred.user);
-
-      const idToken = await cred.user.getIdToken();
-      await createSession(idToken);
-
-      router.replace(redirectTo);
-    } catch (err: unknown) {
-      const maybeFirebaseErr = err as { code?: string } | undefined;
-      if (maybeFirebaseErr?.code === "auth/popup-closed-by-user") {
-        // ignore silently
-      } else {
-        let message = "Google sign-in failed";
-        if (err instanceof Error && err.message) {
-          message = err.message;
-        }
-        setError(message);
-      }
-    } finally {
-      setGoogleLoading(false);
+      setSubmitting(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-sm space-y-4 border p-6 rounded-lg">
-        <h1 className="text-xl font-semibold">Login</h1>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-sm space-y-4 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950/60">
+        <h1 className="text-xl font-semibold">Sign in</h1>
 
         <form onSubmit={handleEmailLogin} className="space-y-3">
           <div>
             <label className="block text-sm mb-1">Email</label>
             <input
               type="email"
-              className="w-full border rounded px-3 py-2 text-sm"
+              autoComplete="email"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
             />
           </div>
 
@@ -115,52 +105,38 @@ export default function LoginPage() {
             <label className="block text-sm mb-1">Password</label>
             <input
               type="password"
-              className="w-full border rounded px-3 py-2 text-sm"
+              autoComplete="current-password"
+              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
             />
           </div>
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-2 rounded bg-black text-white text-sm disabled:opacity-60"
+            disabled={submitting}
+            className="w-full rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-medium py-2.5 disabled:opacity-60"
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {submitting ? "Signing in…" : "Sign in"}
           </button>
         </form>
 
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span>or</span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
-
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          disabled={googleLoading}
-          className="w-full py-2 border rounded text-sm flex items-center justify-center gap-2 disabled:opacity-60"
-        >
-          {googleLoading ? "Signing in with Google…" : "Continue with Google"}
-        </button>
-
-        <div className="flex justify-between text-xs mt-2">
+        <div className="flex justify-between text-xs">
           <button
             type="button"
-            className="underline"
-            onClick={() => router.push("/register")}
-          >
-            Create account
-          </button>
-          <button
-            type="button"
-            className="underline"
             onClick={() => router.push("/reset-password")}
+            className="underline underline-offset-2 text-slate-600 dark:text-slate-400"
           >
             Forgot password?
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.push("/register")}
+            className="underline underline-offset-2 text-slate-600 dark:text-slate-400"
+          >
+            Create account
           </button>
         </div>
       </div>
