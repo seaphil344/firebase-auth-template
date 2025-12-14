@@ -14,6 +14,8 @@ type DashboardShellProps = {
 
 const navItems = [
   { label: "Overview", href: "/dashboard" },
+  { label: "Activity", href: "/dashboard/activity" },
+
   // You can add more later, e.g.:
   // { label: "Projects", href: "/dashboard/projects" },
 ];
@@ -64,8 +66,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
             </p>
             <div className="mt-1 space-y-1">
               {navItems.map((item) => {
-                const isActive =
-                  pathname === item.href || pathname.startsWith(item.href + "/");
+                const isOverview = item.href === "/dashboard";
+
+                const isActive = isOverview
+                    ? pathname === "/dashboard"
+                    : pathname === item.href || pathname.startsWith(item.href + "/");
                 return (
                   <Link
                     key={item.href}
